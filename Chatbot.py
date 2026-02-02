@@ -1,102 +1,97 @@
 import nltk
+import random
+import re
+from datetime import datetime
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-import random
-from datetime import datetime
-
-# Download NLTK resources
 nltk.download('punkt')
 nltk.download('stopwords')
 
-def preprocess_input(user_input, exclude_stopwords=False):
-    # Tokenize the input and remove stopwords if exclude_stopwords is False
-    tokens = word_tokenize(user_input.lower())
+STOP_WORDS = set(stopwords.words('english'))
+def preprocess_input(text):
+    tokens = word_tokenize(text.lower())
+    return [t for t in tokens if t.isalnum() and t not in STOP_WORDS]
+INTENTS = {
+    "greeting": {
+        "patterns": ["hello", "hi", "hey", "good morning", "good evening"],
+        "response": "Hello! How can I help you today?"
+    },
 
-    if exclude_stopwords:
-        filtered_tokens = [word for word in tokens if word.isalnum()]
-    else:
-        filtered_tokens = [word for word in tokens if word.isalnum() and word.lower() not in stopwords.words('english')]
+    "about_bot": {
+        "patterns": ["who are you", "about yourself", "what are you"],
+        "response": "I am Sparky , a simple NLP-based chatbot created using Python."
+    },
 
-    return filtered_tokens
+    "how_are_you": {
+        "patterns": ["how are you", "how are you doing", "are you fine"],
+        "response": "I'm doing great! Thanks for asking "
+    },
 
-def Sparky(user_input):
-    # Preprocess user input
+    "thanks": {
+        "patterns": ["thank you", "thanks", "thanks a lot"],
+        "response": "You're welcome! Happy to help "
+    },
+
+    "positive": {
+        "patterns": ["great", "awesome", "excellent", "amazing", "fantastic"],
+        "response": "That’s great to hear! "
+    },
+
+    "time": {
+        "patterns": ["time", "current time", "tell me the time"],
+        "response": lambda: f"The current time is {datetime.now().strftime('%I:%M:%S %p')}."
+    },
+
+    "fun_fact": {
+        "patterns": ["fun fact", "random fact", "tell me a fact", "fact"],
+        "response": lambda: random.choice([
+            "A cloud can weigh more than a million tonnes.",
+            "Octopuses have three hearts.",
+            "Bananas are berries, but strawberries are not.",
+            "Your brain uses about 20% of your body's energy.",
+            "Sharks existed before trees."
+        ])
+    }
+}
+def detect_intent(user_input):
+    user_input = user_input.lower()
     tokens = preprocess_input(user_input)
 
-    # Define predefined rules based on tokenized input
-    greetings = ['hello', 'hi', 'hey', 'greetings']
-    about_bot = ['who', 'are', 'you', 'what', 'tell', 'about', 'yourself']
-    positive_responses = ['great', 'awesome', 'excellent', 'fantastic', 'amazing']
-    thanks_keywords = ['thank', 'thanks']
-    random_keywords = ['fun fact', 'random fact', 'fact']
-    how_are_you_keywords = ['how', 'are', 'you','feeling','today']
-    time_keywords = ['tell','time']
+    intent_scores = {}
 
-    # Identify user intent based on tokenized input
-    if any(word in tokens for word in greetings):
-        return "Hello! How can I help you today?"
+    for intent, data in INTENTS.items():
+        score = 0
+        for phrase in data["patterns"]:
+            if phrase in user_input:
+                score += 3
+        for token in tokens:
+            for phrase in data["patterns"]:
+                if token in phrase:
+                    score += 1
 
-    elif any(word in tokens for word in about_bot):
-        return "I am a simple chatbot. I'm here to assist you."
+        intent_scores[intent] = score
 
-    elif any(word in tokens for word in positive_responses):
-        return "I'm glad to hear that! Is there anything specific you would like to know?"
+    best_intent = max(intent_scores, key=intent_scores.get)
 
-    elif any(word in tokens for word in thanks_keywords):
-        return "You're welcome! If you have more questions, feel free to ask."
+    if intent_scores[best_intent] == 0:
+        return None
 
-    elif any(word in tokens for word in random_keywords):
-        # Generate a random fun fact
-        fun_facts = [
-            "A cloud weighs around a million tonnes.",
-            "Giraffes are 30 times more likely to get hit by lightning than people.",
-            "Identical twins don't have the same fingerprints.",
-            "Earth's rotation is changing speed.",
-            "Your brain is constantly eating itself.",
-            "The largest piece of fossilized dinosaur poo discovered is over 30cm long and over two liters in volume.",
-            "The Universe's average color is called 'Cosmic latte'.",
-            "Animals can experience time differently from humans.",
-            "A chicken once lived for 18 months without a head.",
-            "All the world's bacteria stacked on top of each other would stretch for 10 billion light-years.",
-            "Wearing a tie can reduce blood flow to the brain by 7.5 per cent.",
-            "The fear of long words is called Hippopotomonstrosesquippedaliophobia.",
-            "The world's oldest dog lived to 29.5 years old.",
-            "The world's oldest cat lived to 38 years and three days old.",
-            "The Sun makes a sound but we can't hear it.",
-            "Mount Everest isn't the tallest mountain on Earth.",
-            "Our solar system has a wall.",
-            "Most maps of the world are wrong.",
-            "NASA genuinely faked part of the Moon landing.",
-            "Comets smell like rotten eggs.",
-            "Earth's poles are moving.",
-            "You can actually die laughing.",
-            "Chainsaws were first invented for childbirth.",
-            "Ants don't have lungs.",
-            "The T.rex likely had feathers.",
-        ]
-        return random.choice(fun_facts)
+    return best_intent
+def Sparky(user_input):
+    intent = detect_intent(user_input)
 
-    elif any(word in tokens for word in how_are_you_keywords):
-        return "I'm just a computer program, but thanks for asking!"
+    if intent is None:
+        return "Sorry, I didn’t understand that. Could you rephrase?"
 
-    elif any(word in tokens for word in time_keywords):
-        # Get the current time in 12-hour format
-        current_time = datetime.now().strftime("%I:%M:%S %p")
-        return f"The current time is {current_time}."
-
-    else:
-        return "I'm sorry, I don't understand that. Could you please rephrase?"
-
-# Example usage
-print("""Chatbot: Hello! I'm Sparky. How can I assist you today? 
-         Type 'exit' to end the conversation.""")
+    response = INTENTS[intent]["response"]
+    return response() if callable(response) else response
+print("Chatbot: Hello! I'm Sparky  (Type 'exit' to quit)")
 
 while True:
     user_input = input("You: ")
 
-    if user_input.lower() == 'exit':
-        print("Chatbot: Goodbye! Have a great day.")
+    if user_input.lower() == "exit":
+        print("Chatbot: Goodbye! Have a great day ")
         break
 
-    response = Sparky(user_input)
-    print("Chatbot:", response)
+    print("Chatbot:", Sparky(user_input))
